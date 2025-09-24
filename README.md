@@ -1,42 +1,91 @@
-# Portfolio Blog Starter
+# Botir Khaltaev | Portfolio
 
-This is a porfolio site template complete with a blog. Includes:
+Personal portfolio and blog of Botir Khaltaev - Systems Software Engineer specializing in storage systems, operating systems, and ML infrastructure.
 
-- MDX and Markdown support
-- Optimized for SEO (sitemap, robots, JSON-LD schema)
-- RSS Feed
-- Dynamic OG images
-- Syntax highlighting
-- Tailwind v4
-- Vercel Speed Insights / Web Analytics
-- Geist font
+## 🚀 Live Site
 
-## Demo
+[botirkhaltaev.com](https://botirkhaltaev.com)
 
-https://portfolio-blog-starter.vercel.app
+## 🛠️ Tech Stack
 
-## How to Use
+- **Next.js 15** (App Router) - React framework
+- **TypeScript** - Type safety
+- **Tailwind CSS v4** - Styling
+- **MDX** - Blog posts with JSX components
+- **Bun** - Package manager and runtime
+- **Biome** - Linting and formatting
+- **Vercel Analytics** - Performance monitoring
+- **Geist Font** - Typography
 
-You can choose from one of the following two methods to use this repository:
+## 🏗️ Features
 
-### One-Click Deploy
+- Modern blog with MDX support
+- SEO optimized (sitemap, robots, JSON-LD schema)
+- RSS feed
+- Dynamic OG image generation
+- Syntax highlighting for code blocks
+- Dark/light mode support
+- Responsive design
+- CI/CD with GitHub Actions
 
-Deploy the example using [Vercel](https://vercel.com?utm_source=github&utm_medium=readme&utm_campaign=vercel-examples):
-
-[![Deploy with Vercel](https://vercel.com/button)](https://vercel.com/new/clone?repository-url=https://github.com/vercel/examples/tree/main/solutions/blog&project-name=blog&repository-name=blog)
-
-### Clone and Deploy
-
-Execute [`create-next-app`](https://github.com/vercel/next.js/tree/canary/packages/create-next-app) with [pnpm](https://pnpm.io/installation) to bootstrap the example:
-
-```bash
-pnpm create next-app --example https://github.com/vercel/examples/tree/main/solutions/blog blog
-```
-
-Then, run Next.js in development mode:
+## 🚀 Development
 
 ```bash
-pnpm dev
+# Install dependencies
+bun install
+
+# Start development server
+bun dev
+
+# Build for production
+bun run build
+
+# Start production server
+bun start
+
+# Lint code
+bun run lint
+
+# Type check
+bun run typecheck
 ```
 
-Deploy it to the cloud with [Vercel](https://vercel.com/templates) ([Documentation](https://nextjs.org/docs/app/building-your-application/deploying)).
+## 📝 Blog Posts
+
+Blog posts are written in MDX and stored in `app/blog/posts/`. Each post includes frontmatter with metadata:
+
+```yaml
+---
+title: "Post Title"
+publishedAt: "2023-01-01"
+summary: "Post description"
+image: "optional-image.jpg"
+---
+```
+
+## 🧰 Project Structure
+
+```
+app/
+├── blog/               # Blog functionality
+│   ├── posts/         # MDX blog posts
+│   ├── [slug]/        # Dynamic blog post pages
+│   └── utils.ts       # Blog utilities
+├── components/        # Shared components
+├── og/               # OG image generation
+├── rss/              # RSS feed
+└── global.css        # Global styles
+```
+
+## 📊 CI/CD
+
+Automated CI/CD pipeline with GitHub Actions:
+- 🔍 Linting and formatting checks
+- 🏗️ TypeScript type checking
+- 🚀 Production build validation
+- 🔒 Security auditing
+- ⚡ Smart caching for fast builds
+
+---
+
+Built with ❤️ by [Botir Khaltaev](https://github.com/botirk38)

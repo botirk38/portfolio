@@ -6,7 +6,8 @@
     "start": "next start",
     "lint": "biome check .",
     "lint:fix": "biome check . --write",
-    "lint:unsafe": "biome check . --write --unsafe"
+    "lint:unsafe": "biome check . --write --unsafe",
+    "typecheck": "tsc --noEmit"
   },
   "dependencies": {
     "@tailwindcss/postcss": "4.0.0-alpha.13",

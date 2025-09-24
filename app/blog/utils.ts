@@ -13,6 +13,11 @@ function parseFrontmatter(fileContent: string) {
 	const match = frontmatterRegex.exec(fileContent);
 	const frontMatterBlock = match?.[1];
 	const content = fileContent.replace(frontmatterRegex, "").trim();
+
+	if (!frontMatterBlock) {
+		return { metadata: {} as Metadata, content };
+	}
+
 	const frontMatterLines = frontMatterBlock.trim().split("\n");
 	const metadata: Partial<Metadata> = {};
 

@@ -27,9 +27,9 @@ export async function GET() {
 	const rssFeed = `<?xml version="1.0" encoding="UTF-8" ?>
   <rss version="2.0">
     <channel>
-        <title>My Portfolio</title>
-        <link>${baseUrl}</link>
-        <description>This is my portfolio RSS feed</description>
+        <title>Botir Khaltaev | Portfolio</title>
+        <link>https://botirkhaltaev.com</link>
+        <description>Botir Khaltaev's portfolio and blog - Systems Software Engineer specializing in storage systems, operating systems, and ML infrastructure</description>
         ${itemsXml}
     </channel>
   </rss>`;

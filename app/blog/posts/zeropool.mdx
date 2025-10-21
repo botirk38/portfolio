@@ -69,16 +69,18 @@ This two-tier design resembles familiar memory management patterns, L1 cache hit
 
 A single global `Mutex<Vec<Vec<u8>>>` would be a catastrophe. With eight threads hammering it, you'd spend more time waiting for locks than doing work.
 
-Sharding solves this by distributing contention across multiple locks. Threads round-robin through shards, which means each shard is acquired less frequently. Power-of-2 sharding enables a particularly elegant optimization:
+Sharding solves this by distributing contention across multiple locks. But the initial round-robin approach left performance on the table. The breakthrough came with **thread-local shard affinity**: each thread consistently uses the same shard based on its thread ID.
 
 ```rust
-// Fast shard selection using bitwise AND (no division!)
-let shard_idx = thread_counter & (num_shards - 1);
+// Thread-affinity shard selection (better cache locality!)
+let shard_idx = hash(thread_id) & (num_shards - 1);
 let shard = unsafe { shards.get_unchecked(shard_idx) }.lock();
 
 ```
 
-Bitwise AND is single-cycle. Modulo division is not. This matters when you're in a hot loop millions of times per second.
+This seemingly small change delivered 14-38% throughput improvements. Why? CPU cache locality. When a thread consistently accesses the same shard, that shard's data stays hot in the CPU's L3 cache. Round-robin scattered access across all shards, thrashing the cache.
+
+Power-of-2 sharding enables bitwise AND instead of modulo division—single-cycle operation versus multi-cycle division. This matters when you're in a hot loop millions of times per second.
 
 ## The Unsafe Optimization You're Probably Not Doing
 
@@ -119,14 +121,14 @@ Single-threaded allocation and deallocation:
   data={{
     headers: ["Buffer Size", "ZeroPool", "No Pool", "Lifeguard", "Bytes Crate"],
     rows: [
-      ["1KB", "8.4ns", "7.2ns", "7.0ns", "7.5ns"],
-      ["64KB", "8.4ns", "43.6ns", "6.5ns", "43.5ns"],
-      ["1MB", "8.3ns", "35.3ns", "6.5ns", "44.5ns"]
+      ["1KB", "14.9ns", "7.7ns", "7.0ns", "8.4ns"],
+      ["64KB", "14.6ns", "46.3ns", "6.9ns", "49.1ns"],
+      ["1MB", "14.6ns", "37.7ns", "6.9ns", "39.4ns"]
     ]
   }}
 />
 
-ZeroPool maintains constant 8ns latency regardless of buffer size—5x faster than the bytes crate for large buffers.
+ZeroPool maintains constant ~15ns latency regardless of buffer size—2.6x faster than the bytes crate for large buffers.
 
 Multi-threaded throughput tells the real story:
 
@@ -134,14 +136,14 @@ Multi-threaded throughput tells the real story:
   data={{
     headers: ["Thread Count", "ZeroPool", "No Pool", "Sharded-Slab"],
     rows: [
-      ["2", "10.3 TiB/s", "2.8 TiB/s", "1.4 TiB/s"],
-      ["4", "18.7 TiB/s", "5.4 TiB/s", "2.7 TiB/s"],
-      ["8", "28.1 TiB/s", "9.3 TiB/s", "4.8 TiB/s"]
+      ["2", "14.2 TiB/s", "2.7 TiB/s", "1.3 TiB/s"],
+      ["4", "25.0 TiB/s", "5.1 TiB/s", "2.6 TiB/s"],
+      ["8", "32.0 TiB/s", "7.7 TiB/s", "3.9 TiB/s"]
     ]
   }}
 />
 
-Near-linear scaling with thread count, and 3x faster than sharded-slab under contention. The two-tier design, TLS plus sharded global, eliminates the lock-free data structure complexity while delivering the performance.
+Near-linear scaling with thread count, and 8.2x faster than sharded-slab under contention at 8 threads. The two-tier design with thread-local shard affinity delivers excellent cache locality while eliminating lock-free data structure complexity.
 
 ## Design Decisions That Stuck
 

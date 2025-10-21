@@ -115,21 +115,31 @@ The allocator was the bottleneck all along. io_uring was ready to move at wire s
 
 Single-threaded allocation and deallocation:
 
-| Buffer Size | ZeroPool | No Pool | Lifeguard | Bytes Crate |
-|-------------|----------|---------|-----------|-------------|
-| 1KB         | 8.4ns    | 7.2ns   | 7.0ns     | 7.5ns       |
-| 64KB        | 8.4ns    | 43.6ns  | 6.5ns     | 43.5ns      |
-| 1MB         | 8.3ns    | 35.3ns  | 6.5ns     | 44.5ns      |
+<Table
+  data={{
+    headers: ["Buffer Size", "ZeroPool", "No Pool", "Lifeguard", "Bytes Crate"],
+    rows: [
+      ["1KB", "8.4ns", "7.2ns", "7.0ns", "7.5ns"],
+      ["64KB", "8.4ns", "43.6ns", "6.5ns", "43.5ns"],
+      ["1MB", "8.3ns", "35.3ns", "6.5ns", "44.5ns"]
+    ]
+  }}
+/>
 
 ZeroPool maintains constant 8ns latency regardless of buffer size—5x faster than the bytes crate for large buffers.
 
 Multi-threaded throughput tells the real story:
 
-| Thread Count | ZeroPool   | No Pool   | Sharded-Slab |
-|--------------|------------|-----------|--------------|
-| 2            | 10.3 TiB/s | 2.8 TiB/s | 1.4 TiB/s    |
-| 4            | 18.7 TiB/s | 5.4 TiB/s | 2.7 TiB/s    |
-| 8            | 28.1 TiB/s | 9.3 TiB/s | 4.8 TiB/s    |
+<Table
+  data={{
+    headers: ["Thread Count", "ZeroPool", "No Pool", "Sharded-Slab"],
+    rows: [
+      ["2", "10.3 TiB/s", "2.8 TiB/s", "1.4 TiB/s"],
+      ["4", "18.7 TiB/s", "5.4 TiB/s", "2.7 TiB/s"],
+      ["8", "28.1 TiB/s", "9.3 TiB/s", "4.8 TiB/s"]
+    ]
+  }}
+/>
 
 Near-linear scaling with thread count, and 3x faster than sharded-slab under contention. The two-tier design, TLS plus sharded global, eliminates the lock-free data structure complexity while delivering the performance.
 

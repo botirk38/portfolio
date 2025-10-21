@@ -39,7 +39,7 @@ jobs:
         uses: actions/cache@v4
         with:
           path: ~/.bun/install/cache
-          key: bun-${{ runner.os }}-${{ steps.bun-version.outputs.version }}-${{ hashFiles('**/bun.lockb') }}
+          key: bun-${{ runner.os }}-${{ steps.bun-version.outputs.version }}-${{ hashFiles('**/bun.lock') }}
           restore-keys: |
             bun-${{ runner.os }}-${{ steps.bun-version.outputs.version }}-
             bun-${{ runner.os }}-
@@ -49,7 +49,7 @@ jobs:
         uses: actions/cache@v4
         with:
           path: node_modules
-          key: node-modules-${{ runner.os }}-${{ steps.bun-version.outputs.version }}-${{ hashFiles('**/bun.lockb') }}
+          key: node-modules-${{ runner.os }}-${{ steps.bun-version.outputs.version }}-${{ hashFiles('**/bun.lock') }}
           restore-keys: |
             node-modules-${{ runner.os }}-${{ steps.bun-version.outputs.version }}-
             node-modules-${{ runner.os }}-
@@ -80,7 +80,7 @@ jobs:
         uses: actions/cache@v4
         with:
           path: node_modules
-          key: node-modules-${{ runner.os }}-${{ steps.bun-version.outputs.version }}-${{ hashFiles('**/bun.lockb') }}
+          key: node-modules-${{ runner.os }}-${{ steps.bun-version.outputs.version }}-${{ hashFiles('**/bun.lock') }}
           restore-keys: |
             node-modules-${{ runner.os }}-${{ steps.bun-version.outputs.version }}-
             node-modules-${{ runner.os }}-
@@ -113,7 +113,7 @@ jobs:
         uses: actions/cache@v4
         with:
           path: node_modules
-          key: node-modules-${{ runner.os }}-${{ steps.bun-version.outputs.version }}-${{ hashFiles('**/bun.lockb') }}
+          key: node-modules-${{ runner.os }}-${{ steps.bun-version.outputs.version }}-${{ hashFiles('**/bun.lock') }}
           restore-keys: |
             node-modules-${{ runner.os }}-${{ steps.bun-version.outputs.version }}-
             node-modules-${{ runner.os }}-
@@ -146,7 +146,7 @@ jobs:
         uses: actions/cache@v4
         with:
           path: node_modules
-          key: node-modules-${{ runner.os }}-${{ steps.bun-version.outputs.version }}-${{ hashFiles('**/bun.lockb') }}
+          key: node-modules-${{ runner.os }}-${{ steps.bun-version.outputs.version }}-${{ hashFiles('**/bun.lock') }}
           restore-keys: |
             node-modules-${{ runner.os }}-${{ steps.bun-version.outputs.version }}-
             node-modules-${{ runner.os }}-
@@ -159,9 +159,9 @@ jobs:
         with:
           path: |
             .next/cache
-          key: nextjs-${{ runner.os }}-${{ hashFiles('**/bun.lockb') }}-${{ hashFiles('**/*.js', '**/*.jsx', '**/*.ts', '**/*.tsx') }}
+          key: nextjs-${{ runner.os }}-${{ hashFiles('**/bun.lock') }}-${{ hashFiles('**/*.js', '**/*.jsx', '**/*.ts', '**/*.tsx') }}
           restore-keys: |
-            nextjs-${{ runner.os }}-${{ hashFiles('**/bun.lockb') }}-
+            nextjs-${{ runner.os }}-${{ hashFiles('**/bun.lock') }}-
             nextjs-${{ runner.os }}-
 
       - name: Build application
@@ -209,7 +209,7 @@ jobs:
         uses: actions/cache@v4
         with:
           path: node_modules
-          key: node-modules-${{ runner.os }}-${{ steps.bun-version.outputs.version }}-${{ hashFiles('**/bun.lockb') }}
+          key: node-modules-${{ runner.os }}-${{ steps.bun-version.outputs.version }}-${{ hashFiles('**/bun.lock') }}
           restore-keys: |
             node-modules-${{ runner.os }}-${{ steps.bun-version.outputs.version }}-
             node-modules-${{ runner.os }}-
@@ -241,3 +241,4 @@ jobs:
           else
             echo "✅ All CI checks passed!"
           fi
+

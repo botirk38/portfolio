@@ -6,18 +6,22 @@ import { highlight } from "sugar-high";
 
 function Table({ data }) {
 	const headers = data.headers.map((header, index) => (
-		<th key={index}>{header}</th>
+		<th key={index} className="px-4 py-2 text-left border-b border-neutral-200 dark:border-neutral-800 font-medium">
+			{header}
+		</th>
 	));
 	const rows = data.rows.map((row, index) => (
-		<tr key={index}>
+		<tr key={index} className="border-b border-neutral-100 dark:border-neutral-900">
 			{row.map((cell, cellIndex) => (
-				<td key={cellIndex}>{cell}</td>
+				<td key={cellIndex} className="px-4 py-2">
+					{cell}
+				</td>
 			))}
 		</tr>
 	));
 
 	return (
-		<table>
+		<table className="w-full my-6 border-collapse">
 			<thead>
 				<tr>{headers}</tr>
 			</thead>

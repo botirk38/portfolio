@@ -40,9 +40,9 @@ The fix seemed obvious, stop allocating new buffers every time. Reuse them. This
 
 I explored three popular libraries, each with their own fatal flaws.
 
-**Mempool**: This library returns an immutable reference, but tokio-uring needs owned Vec<u8> that can cross await boundaries and be passed to the kernel. You cannot move an owned value out of a reference. Dead end.
+**Mempool**: This library returns an immutable reference, but tokio-uring needs owned `Vec<u8>` that can cross await boundaries and be passed to the kernel. You cannot move an owned value out of a reference. Dead end.
 
-**Lifeguard**: Better! It provides a smart pointer wrapper. But it doesn't implement Send or Sync, which means you cannot wrap it in Arc to share across async tasks. For a multi-threaded workload, this library was off the table.
+**Lifeguard**: Better! It provides a smart pointer wrapper. But it doesn't implement Send or Sync, which means you cannot wrap it in `Arc` to share across async tasks. For a multi-threaded workload, this library was off the table.
 
 **Object-Pool**: Thread-safe, shareable, but the implementation didn't deliver the throughput I needed for high-volume I/O workloads. Measurement showed it wasn't meeting performance targets.
 
@@ -54,7 +54,7 @@ At this point I had a choice: accept the limitations of existing solutions, or e
 
 I chose to build. Here's what I needed:
 
-- Owned Vec<u8> buffers, not references, not smart pointers
+- Owned `Vec<u8>` buffers, not references, not smart pointers
 - Thread-safe sharing across async tasks
 - Optimized for high-throughput I/O patterns
 - Dead simple API: just get() and put()
@@ -67,7 +67,7 @@ This two-tier design resembles familiar memory management patterns, L1 cache hit
 
 ### Why Sharding Prevents Bottlenecks
 
-A single global Mutex<Vec<Vec<u8>>> would be a catastrophe. With eight threads hammering it, you'd spend more time waiting for locks than doing work.
+A single global `Mutex<Vec<Vec<u8>>>` would be a catastrophe. With eight threads hammering it, you'd spend more time waiting for locks than doing work.
 
 Sharding solves this by distributing contention across multiple locks. Threads round-robin through shards, which means each shard is acquired less frequently. Power-of-2 sharding enables a particularly elegant optimization:
 

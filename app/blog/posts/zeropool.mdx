@@ -30,7 +30,7 @@ async fn load_checkpoint(path: &str) -> Result<Vec<u8>> {
 
 ```
 
-But when I profiled my code, something was deeply wrong. Loading a GPT-2 checkpoint (around 350MB in safetensors format) took 200ms. The profiler revealed a shocking truth: **70% of that time was spent allocating that single massive buffer, not doing I/O**. The io_uring ring was idle. The disk was barely being used. My program was trapped in malloc() and memset().
+But when I profiled my code, something was deeply wrong. Loading a GPT-2 checkpoint (around 350MB in safetensors format) took 200ms. The profiler revealed a shocking truth: **70% of that time was spent allocating that single massive buffer, not doing I/O**. The io_uring ring was idle. The disk was barely being used. My program was trapped in `malloc()` and `memset()`.
 
 This is the moment every systems programmer dreads: your bottleneck isn't where you thought it was.
 
@@ -57,7 +57,7 @@ I chose to build. Here's what I needed:
 - Owned `Vec<u8>` buffers, not references, not smart pointers
 - Thread-safe sharing across async tasks
 - Optimized for high-throughput I/O patterns
-- Dead simple API: just get() and put()
+- Dead simple API: just `get()` and `put()`
 
 ![TLS Cache Architecture](/blog_materials/zeropool/tls-architecture.png)
 
@@ -115,81 +115,21 @@ The allocator was the bottleneck all along. io_uring was ready to move at wire s
 
 Single-threaded allocation and deallocation:
 
-Buffer Size
-
-ZeroPool
-
-No Pool
-
-Lifeguard
-
-Bytes Crate
-
-1KB
-
-8.4ns
-
-7.2ns
-
-7.0ns
-
-7.5ns
-
-64KB
-
-8.4ns
-
-43.6ns
-
-6.5ns
-
-43.5ns
-
-1MB
-
-8.3ns
-
-35.3ns
-
-6.5ns
-
-44.5ns
+| Buffer Size | ZeroPool | No Pool | Lifeguard | Bytes Crate |
+|-------------|----------|---------|-----------|-------------|
+| 1KB         | 8.4ns    | 7.2ns   | 7.0ns     | 7.5ns       |
+| 64KB        | 8.4ns    | 43.6ns  | 6.5ns     | 43.5ns      |
+| 1MB         | 8.3ns    | 35.3ns  | 6.5ns     | 44.5ns      |
 
 ZeroPool maintains constant 8ns latency regardless of buffer size—5x faster than the bytes crate for large buffers.
 
 Multi-threaded throughput tells the real story:
 
-Thread Count
-
-ZeroPool
-
-No Pool
-
-Sharded-Slab
-
-2
-
-10.3 TiB/s
-
-2.8 TiB/s
-
-1.4 TiB/s
-
-4
-
-18.7 TiB/s
-
-5.4 TiB/s
-
-2.7 TiB/s
-
-8
-
-28.1 TiB/s
-
-9.3 TiB/s
-
-4.8 TiB/s
+| Thread Count | ZeroPool   | No Pool   | Sharded-Slab |
+|--------------|------------|-----------|--------------|
+| 2            | 10.3 TiB/s | 2.8 TiB/s | 1.4 TiB/s    |
+| 4            | 18.7 TiB/s | 5.4 TiB/s | 2.7 TiB/s    |
+| 8            | 28.1 TiB/s | 9.3 TiB/s | 4.8 TiB/s    |
 
 Near-linear scaling with thread count, and 3x faster than sharded-slab under contention. The two-tier design, TLS plus sharded global, eliminates the lock-free data structure complexity while delivering the performance.
 
@@ -197,11 +137,11 @@ Near-linear scaling with thread count, and 3x faster than sharded-slab under con
 
 **Thread-Local Cache Size**: Too small means frequent shared pool access. Too large means wasteful memory per thread. I use system-aware defaults: 2 buffers for embedded systems, 4 for desktops, 6 for workstations, and 8 for servers.
 
-**Power-of-2 Shards**: This enables bitwise AND instead of modulo division, faster by orders of magnitude. Plus, you can use get_unchecked() because the mask mathematically guarantees bounds.
+**Power-of-2 Shards**: This enables bitwise AND instead of modulo division, faster by orders of magnitude. Plus, you can use `get_unchecked()` because the mask mathematically guarantees bounds.
 
 **LIFO Cache Order**: Most recently used buffers are cache-hot in CPU L3. Accessing them first improves cache utilization. This is a small detail that compounds across millions of requests.
 
-**First-Fit Over Best-Fit**: Best-fit scans the pool to find the smallest suitable buffer. For I/O workloads with predictable buffer sizes, first-fit is O(1) in practice. Simpler and faster.
+**First-Fit Over Best-Fit**: Best-fit scans the pool to find the smallest suitable buffer. For I/O workloads with predictable buffer sizes, first-fit is `O(1)` in practice. Simpler and faster.
 
 ## The API: Designed for Simplicity
 
@@ -229,7 +169,7 @@ For ultra-low-latency systems, pin buffers in RAM to prevent OS swapping:
 
 ```rust
 let pool = BufferPool::builder()
-    .pinned_memory(true) // Uses mlock()
+    .pinned_memory(true) // Uses `mlock()`
     .build();
 
 ```
@@ -257,7 +197,7 @@ cargo add zeropool
 
 ```
 
-Source: github.com/botirk38/zeropool
+Source: [github.com/botirk38/zeropool](https://github.com/botirk38/zeropool)
 
 Run the benchmarks yourself:
 
@@ -272,7 +212,7 @@ cargo bench
 
 Ideas in exploration:
 
-- Async get() API for backpressure control when pool exhaustion occurs
+- Async `get()` API for backpressure control when pool exhaustion occurs
 - Size-class buckets to maintain separate pools for different buffer ranges
 - NUMA awareness for multi-socket systems
 - Custom allocator support (jemalloc, mimalloc)

@@ -1,3 +1,4 @@
+import { SemanticMap } from "app/components/blog/routing-sucks/semantic-map";
 import Image from "next/image";
 import Link from "next/link";
 import { MDXRemote } from "next-mdx-remote/rsc";
@@ -118,6 +119,8 @@ const components = {
 	a: CustomLink,
 	code: Code,
 	Table,
+	// Blog components
+	SemanticMap,
 };
 
 export function CustomMDX(props) {

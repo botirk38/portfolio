@@ -19,7 +19,7 @@ const completion = await openai.chat.completions.create({
 ```
 
 ### Provider Routing
-Manually selecting modules from multiple providers. This helps solve vendor lock-in and improves reliability. This is often the *same model* (e.g. Llama 4) but hosted by different providers (Groq, Together, Replicate).
+Manually selecting models from multiple providers. This helps solve vendor lock-in and improves reliability. This is often the *same model* (e.g. Llama 4) but hosted by different providers (Groq, Together, Replicate).
 
 ```typescript
 function route(provider: string) {
@@ -121,6 +121,6 @@ Crucially, we don't define clusters like "creative writing" or "python coding" m
 
 This is the middle ground: preserving context while avoiding over-engineering. It's not about forcing models into boxes, but finding where they naturally excel in the vast space of possible requests.
 
-The real power of this approach comes from its adaptability. When a new model like GPT-5.5 drops, you don't need to rewrite thousands of heuristic rules or retrain a binary classifier. You simply run the new model against a sample of requests from each semantic cluster. If it outperforms the incumbent in the "SQL optimization" cluster but fails in the "creative poetry" cluster, the routing map updates automatically. The system learns the contours of the new model's intelligence profile instead of relying on a human's intuition about what it "should" be good at.
+The key takeaway is that intelligent model selection is about encoding the user's context and mapping that to the best LLM to resolve it. Bad approaches generalize the context too heavily (e.g. "is this code?") leading to poor performance.
 
 The future of routing isn't a smarter LLM deciding where to send your prompt. It's a map. A map of the semantic universe, charted by performance data, guiding each request to the model that has already proven it can handle that specific terrain.

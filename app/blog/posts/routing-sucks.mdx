@@ -1,0 +1,126 @@
+---
+title: "Why Most People Have LLM Routing Wrong"
+publishedAt: "2026-02-16"
+summary: "My journey of understanding LLM routing, why current methods are fragile, and a better way to think about it."
+---
+
+For the past year or so, I've been exploring the field of LLM routing. LLM routing is the process of taking your request and directing it towards the most appropriate Large Language Model. There are various types, and I'll briefly cover them below.
+
+## The State of Routing
+
+### Traditional LLM Request
+One provider and one LLM. It's like calling the OpenAI API to use `gpt-5.2`. Simple, but rigid.
+
+```typescript
+const completion = await openai.chat.completions.create({
+  messages: [{ role: "user", content: "Hello world" }],
+  model: "gpt-5.2",
+});
+```
+
+### Provider Routing
+Manually selecting modules from multiple providers. This helps solve vendor lock-in and improves reliability. This is often the *same model* (e.g. Llama 4) but hosted by different providers (Groq, Together, Replicate).
+
+```typescript
+function route(provider: string) {
+  // Same model, different providers
+  switch (provider) {
+    case "groq": return callGroqLlama();
+    case "together": return callTogetherLlama();
+    default: return callReplicateLlama();
+  }
+}
+```
+
+### Intelligent Routing
+Now this is the bread and butter of what I want to talk about. This is the process of taking your prompt and intelligently selecting the model to resolve this prompt.
+
+## The Problem with Current "Intelligent" Routing
+
+Now that we understand what intelligent routing is, this seems simple enough, right? Let's slap it into an LLM and call it a day.
+
+```typescript
+// The "AI" Router
+const model = await askLLM(
+  "Which model should I use for this prompt: " + userPrompt
+);
+```
+
+But wait. If we think about this further, how will the LLM know which LLM to choose for the prompt?
+
+- Will you prompt it specifically?
+- Will you even train it based on historical requests?
+- What size should the routing LLM be?
+
+The smaller the size, the more hallucinations and worse performance it will have. The bigger it is, the slower and more expensive the router becomes, for what seems like very little gain.
+
+This seems harder than we thought. All of these methods feel rigid and fragile.
+
+## A Better Approach?
+
+What if we could step back a bit?
+
+### Heuristic-Based Routing
+We could try heuristic-based routing. Maybe start with token length: if a lot of tokens means hard, if less means not. This can potentially save us a lot of money, but reduces our whole context to just a token length.
+
+```typescript
+function simpleRoute(prompt: string) {
+  // If it's long, it's probably complex?
+  if (prompt.length > 1000) return "gpt-5.2";
+  return "gpt-5-mini";
+}
+```
+
+### Feature Classification
+Then we can go into the realm of classification. Classify our prompt into a feature vector, then map rules onto this.
+
+```typescript
+const features = extractFeatures(prompt);
+// { hasCode: true, complexity: "high", domain: "finance" }
+
+if (features.hasCode && features.complexity === "high") {
+  return "claude-4.5-opus";
+}
+```
+
+This feels like a step up from heuristics, but it's still manually engineered. You're constantly finding yourself updating rules as model capabilities change.
+
+### Random Forests / Binary Classifiers
+A more elegant version of feature classification is using a trained classifier, like a Random Forest, to decide between pairs of models.
+
+```typescript
+// "Classifier says 80% chance Llama 4 405b is better than 70b for this"
+if (classifier.predict(features) === "llama-4-405b") {
+  return "llama-4-405b";
+}
+```
+
+This approach works well for the *exact pairs* it was trained on (e.g., Llama 4 405b vs 70b). But it's optimized for binary choices. If you want to add a third model or if the data distribution changes, you often have to retrain the entire classifier. It doesn't generalize well to the open-ended nature of LLM prompts because it treats routing as a fixed classification task rather than a continuous search problem.
+
+### Semantic Clustering
+This is where it gets interesting. Instead of finite labels or rigid classifiers, we treat routing as a search problem in high-dimensional space.
+
+We derive clusters from a dataset by embedding each problem description using a sentence transformer model. This produces dense vector representations that capture semantic meaning. Problems with similar underlying structure (e.g., authentication bugs, performance optimizations) cluster together in embedding space naturally.
+
+```typescript
+// 1. Embed the incoming prompt
+const embedding = await sentenceTransformer.encode(prompt);
+
+// 2. Find the nearest cluster centroid
+const clusterId = findNearestCluster(embedding);
+
+// 3. Look up historical performance for this specific cluster
+// "For requests in this semantic region, Gemini 3 Pro had a 92% success rate"
+const routingTable = await getRoutingTable(clusterId);
+const bestModel = routingTable.getBestModel();
+
+return bestModel;
+```
+
+Crucially, we don't define clusters like "creative writing" or "python coding" manually. The clusters grow organically with the data. If a new type of request appears, it falls into a new region of the vector space. We can then measure which models perform best in that specific region.
+
+This is the middle ground: preserving context while avoiding over-engineering. It's not about forcing models into boxes, but finding where they naturally excel in the vast space of possible requests.
+
+The real power of this approach comes from its adaptability. When a new model like GPT-5.5 drops, you don't need to rewrite thousands of heuristic rules or retrain a binary classifier. You simply run the new model against a sample of requests from each semantic cluster. If it outperforms the incumbent in the "SQL optimization" cluster but fails in the "creative poetry" cluster, the routing map updates automatically. The system learns the contours of the new model's intelligence profile instead of relying on a human's intuition about what it "should" be good at.
+
+The future of routing isn't a smarter LLM deciding where to send your prompt. It's a map. A map of the semantic universe, charted by performance data, guiding each request to the model that has already proven it can handle that specific terrain.

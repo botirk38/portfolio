@@ -8,17 +8,53 @@ summary: ""
 
 The first time `> ` appeared in the QEMU terminal, the kernel had already done a lot of invisible work to get there. OpenSBI handed off control, a bump allocator carved out page tables, `sret` dropped into U-mode for the first time, and a fake context frame on the kernel stack made it all look like a normal function return. Seven syscalls. One user process. No dynamic loading. This is how it works.
 
-## Why Zig on RISC-V?
+## Why Zig?
 
-The reason why I chose Zig for this project and almost all of my system programming projects is due to the following reasons:
+First class pointer ergonomics, it's a core part of the language, unlike languages that try to abstract this like Rust, meaning building these kind of projects lead to a lot of unsafe code, which is not visually pleasing to me.
 
-- First class pointer ergonomics, it's a core part of the language, unlike languages that try abstract this like Rust, meaning building these kind of projects lead to alot of unsafe code, which is not visually pleasing to me.
+```zig
+const ptr: [*]u8 = @ptrFromInt(paddr);
+@memset(ptr[0..size], 0);
+```
 
-- Allocation is explicit, anything that allocates will accept an allocator
+```rust
+// equivalent in Rust
+let ptr = paddr as *mut u8;
+unsafe {
+    std::ptr::write_bytes(ptr, 0, size);
+}
+```
 
-- Modern language ergonomics, its rare to find a language that has the explicitness of C, but modern language features
+Allocation is explicit, anything that allocates will accept an allocator.
 
-The RISC-V choice mainly because the ISA is very documented and in the name there are not many instructions, so its fit for a small project like this.
+```zig
+pub fn allocPages(n: u32) u32 {
+    const paddr = next_free_paddr;
+    next_free_paddr += n * PAGE_SIZE;
+    if (next_free_paddr > end_paddr) @panic("Out of memory");
+    return paddr;
+}
+```
+
+Modern language ergonomics, it's rare to find a language that has the explicitness of C, but modern language features.
+
+```zig
+fn syscall(num: u32, arg0: u32, arg1: u32, arg2: u32) i32 {
+    var ret: i32 = undefined;
+    asm volatile ("ecall"
+        : [ret] "={a0}" (ret),
+        : [num] "{a7}" (num),
+          [arg0] "{a0}" (arg0),
+          [arg1] "{a1}" (arg1),
+          [arg2] "{a2}" (arg2),
+        : .{ .memory = true });
+    return ret;
+}
+```
+
+## Why RISC-V?
+
+The RISC-V choice mainly because the ISA is very documented and in the name there are not many instructions, so it's fit for a small project like this.
 
 ## The Architecture at a Glance
 

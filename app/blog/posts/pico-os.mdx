@@ -1,0 +1,82 @@
+---
+title: "Writing a RISC-V Kernel in Zig: Boot, Paging, and a Working Shell"
+publishedAt: "2026-03-05"
+summary: ""
+---
+
+# Writing a RISC-V Kernel in Zig: Boot, Paging, and a Working Shell
+
+The first time `> ` appeared in the QEMU terminal, the kernel had already done a lot of invisible work to get there. OpenSBI handed off control, a bump allocator carved out page tables, `sret` dropped into U-mode for the first time, and a fake context frame on the kernel stack made it all look like a normal function return. Seven syscalls. One user process. No dynamic loading. This is how it works.
+
+## Why Zig on RISC-V?
+
+The reason why I chose Zig for this project and almost all of my system programming projects is due to the following reasons:
+
+- First class pointer ergonomics, it's a core part of the language, unlike languages that try abstract this like Rust, meaning building these kind of projects lead to alot of unsafe code, which is not visually pleasing to me.
+
+- Allocation is explicit, anything that allocates will accept an allocator
+
+- Modern language ergonomics, its rare to find a language that has the explicitness of C, but modern language features
+
+The RISC-V choice mainly because the ISA is very documented and in the name there are not many instructions, so its fit for a small project like this.
+
+## The Architecture at a Glance
+
+![System architecture: User Space, Kernel, OpenSBI, and QEMU layers](/blog_materials/pico-os/architecture.png)
+
+The architecture is quite simple and status quo I would say. There are three layers:
+
+- User space runs in U-mode, it interfaces with the kernel via the `ecall` instruction and reads return values from `a0` as specified in the RISC-V calling convention
+- Kernel runs in S-mode, otherwise known as supervisor mode, giving it access to privileged instructions and CSRs like `stvec`, `satp`, and `sscratch`
+- OpenSBI sits below the kernel in M-mode, we call into it for things like console I/O and shutdown via another `ecall` — this one goes down a level rather than up
+
+One thing to note is that the disk is part of the repo as `disk.img`, a raw tar archive that gets attached to QEMU as a VirtIO block device. The kernel reads and writes it at runtime.
+
+The user binary is embedded directly into the kernel image at compile time via `@embedFile("user.bin")` — there is no dynamic loading, one user process gets created on boot and that's it.
+
+The process table is a static array of 8 slots (`PROCS_MAX = 8`) and the scheduler is cooperative round-robin — processes yield explicitly, there is no preemption.
+
+
+## Booting: From Reset Vector to First Instruction
+
+![Boot sequence: from QEMU power-on through OpenSBI, boot(), and kernel_main init](/blog_materials/pico-os/boot-sequence.png)
+
+## Memory: A Bump Allocator and SV32 Paging
+
+### The Bump Allocator
+
+### SV32 Two-Level Page Tables
+
+![RISC-V SV32 two-level page table walk: VPN[1] → Level-1 PT → VPN[0] → Level-0 PT → Physical Page](/blog_materials/pico-os/sv32-paging.png)
+
+## Processes and Context Switching
+
+### The Fake Initial Context Frame
+
+### Round-Robin Yield
+
+![Context switch sequence: yield() → switch_context → user_entry → sret to user space](/blog_materials/pico-os/context-switch.png)
+
+## Trap Handling and Privilege Transitions
+
+### kernelEntry: The RISC-V Trap Vector
+
+### Privilege and the SSTATUS_SUM Flag
+
+![Trap handling sequence: ecall → kernelEntry sscratch swap → TrapFrame save → handleTrap → sret](/blog_materials/pico-os/trap-handling.png)
+
+## System Calls: Seven Ecalls to Run a Shell
+
+## Drivers: VirtIO Block and the Tar Filesystem
+
+### The VirtIO Block Driver
+
+![VirtIO 3-descriptor chain for a block read: request header → data buffer → status byte](/blog_materials/pico-os/virtio-descriptor-chain.png)
+
+### The Tar Filesystem
+
+## The User-Space Shell
+
+## Zig-Specific Notes
+
+## What I Learned

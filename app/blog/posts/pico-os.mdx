@@ -1,7 +1,7 @@
 ---
 title: "Writing a RISC-V Kernel in Zig: Boot, Paging, and a Working Shell"
 publishedAt: "2026-03-05"
-summary: ""
+summary: "A walkthrough of a small RISC-V OS kernel written in Zig, covering boot, paging, context switching, trap handling, syscalls, VirtIO, and a tiny shell."
 ---
 
 # Writing a RISC-V Kernel in Zig: Boot, Paging, and a Working Shell
@@ -10,7 +10,7 @@ The first time `> ` appeared in the QEMU terminal, the kernel had already done a
 
 ## Why Zig?
 
-First class pointer ergonomics, it's a core part of the language, unlike languages that try to abstract this like Rust, meaning building these kind of projects lead to a lot of unsafe code, which is not visually pleasing to me.
+First class pointer ergonomics is a big reason I use Zig for this and almost all of my systems projects. It is a core part of the language, unlike languages that try to abstract this more aggressively like Rust. In practice that means this kind of code feels direct rather than constantly wrapped in layers of `unsafe`.
 
 ```zig
 const ptr: [*]u8 = @ptrFromInt(paddr);
@@ -25,7 +25,7 @@ unsafe {
 }
 ```
 
-Allocation is explicit, anything that allocates will accept an allocator.
+Allocation is explicit. Anything that allocates takes an allocator, so memory use stays visible in the API rather than hidden somewhere under the hood.
 
 ```zig
 pub fn allocPages(n: u32) u32 {
@@ -36,7 +36,7 @@ pub fn allocPages(n: u32) u32 {
 }
 ```
 
-Modern language ergonomics, it's rare to find a language that has the explicitness of C, but modern language features.
+It also has modern ergonomics. It is rare to find a language that keeps the explicitness of C but still gives you better compile time features, better tooling, and a nicer standard library.
 
 ```zig
 fn syscall(num: u32, arg0: u32, arg1: u32, arg2: u32) i32 {
@@ -54,34 +54,65 @@ fn syscall(num: u32, arg0: u32, arg1: u32, arg2: u32) i32 {
 
 ## Why RISC-V?
 
-The RISC-V choice mainly because the ISA is very documented and in the name there are not many instructions, so it's fit for a small project like this.
+The RISC-V choice is mainly because the ISA is very documented and there are not many instructions, so it fits a small project like this well. The privilege model is also very clean, user code in U-mode, kernel in S-mode, firmware in M-mode. It makes it easier to reason about what should happen on an `ecall` or trap.
 
 ## The Architecture at a Glance
 
 ![System architecture: User Space, Kernel, OpenSBI, and QEMU layers](/blog_materials/pico-os/architecture.png)
 
-The architecture is quite simple and status quo I would say. There are three layers:
+The architecture is quite simple. There are three layers:
 
 - User space runs in U-mode, it interfaces with the kernel via the `ecall` instruction and reads return values from `a0` as specified in the RISC-V calling convention
 - Kernel runs in S-mode, otherwise known as supervisor mode, giving it access to privileged instructions and CSRs like `stvec`, `satp`, and `sscratch`
-- OpenSBI sits below the kernel in M-mode, we call into it for things like console I/O and shutdown via another `ecall` — this one goes down a level rather than up
+- OpenSBI sits below the kernel in M-mode. We call into it for things like console I/O and shutdown via another `ecall`, this one goes down a level rather than up
 
-One thing to note is that the disk is part of the repo as `disk.img`, a raw tar archive that gets attached to QEMU as a VirtIO block device. The kernel reads and writes it at runtime.
+One thing to note is that the disk is part of the repo as `disk.img`, a raw tar archive that gets attached to QEMU as a VirtIO block device. The kernel reads it at boot and writes it back at runtime.
 
-The user binary is embedded directly into the kernel image at compile time via `@embedFile("user.bin")` — there is no dynamic loading, one user process gets created on boot and that's it.
+The user binary is embedded directly into the kernel image at compile time via `@embedFile("user.bin")`. There is no dynamic loading, one user process gets created on boot and that's it.
 
-The process table is a static array of 8 slots (`PROCS_MAX = 8`) and the scheduler is cooperative round-robin — processes yield explicitly, there is no preemption.
+The process table is a static array of 8 slots (`PROCS_MAX = 8`) and the scheduler is cooperative round-robin. Processes yield explicitly, there is no preemption.
 
 
 ## Booting: From Reset Vector to First Instruction
 
 ![Boot sequence: from QEMU power-on through OpenSBI, boot(), and kernel_main init](/blog_materials/pico-os/boot-sequence.png)
 
+The OS runs on QEMU, which simulates the hardware and boots the OpenSBI firmware in M-mode. OpenSBI sets up the SBI interface, the channel the kernel uses to call into firmware for things like console I/O and shutdown, then loads the kernel ELF at `0x80200000` and jumps to `boot()`.
+
+`boot()` does two things: sets the stack pointer to the top of the kernel stack, then jumps to `kernel_main`, where our first Zig code starts executing.
+
+The first thing `kernel_main` does is zero the BSS, the region for uninitialized global data. We zero it so there is no garbage state sitting in globals before the kernel starts doing real work.
+
+After that, we write the address of `kernelEntry` to the `stvec` CSR. This tells the CPU that when an exception occurs, jump to this function, save the current registers, and hand control to the trap handler.
+
+After this the kernel initializes the allocator, brings up VirtIO, loads the tar filesystem into memory, creates the idle process, creates the embedded user process, and finally yields into the scheduler.
 ## Memory: A Bump Allocator and SV32 Paging
 
 ### The Bump Allocator
 
+The allocator is as simple as it gets. It starts at `__free_ram` and just hands out pages linearly. No free list, no coalescing, no freeing.
+
+```zig
+pub fn allocPages(n: u32) u32 {
+    const paddr = next_free_paddr;
+    next_free_paddr += n * PAGE_SIZE;
+    if (next_free_paddr > end_paddr) @panic("Out of memory");
+    return paddr;
+}
+```
+
+For a small kernel like this I think this is enough. We mostly allocate page tables, process pages, the VirtIO queue, and the request buffer. Once the system is up there is not much churn anyway.
+
 ### SV32 Two-Level Page Tables
+
+RISC-V SV32 splits the virtual address into two VPN indexes and an offset. So a map operation is basically this: use `VPN[1]` to find the level-1 entry, allocate a level-0 page table if needed, then use `VPN[0]` to write the final leaf PTE.
+
+```zig
+const vpn1 = (vaddr >> sv32.VPN1_SHIFT) & sv32.VPN_MASK;
+const vpn0 = (vaddr >> sv32.VPN0_SHIFT) & sv32.VPN_MASK;
+```
+
+Each process gets its own page table. The kernel region is identity mapped into every process page table, the VirtIO MMIO page is also mapped, then the user image gets mapped at `USER_BASE` with the user bit set. That means once we switch `satp` the kernel is still reachable and the user process sees its code at a fixed virtual address.
 
 ![RISC-V SV32 two-level page table walk: VPN[1] → Level-1 PT → VPN[0] → Level-0 PT → Physical Page](/blog_materials/pico-os/sv32-paging.png)
 
@@ -89,30 +120,179 @@ The process table is a static array of 8 slots (`PROCS_MAX = 8`) and the schedul
 
 ### The Fake Initial Context Frame
 
+This is one of my favorite parts in the project. A new process does not start through some special path, it starts by pretending it was already context switched out before.
+
+At process creation time I build a fake context frame at the top of the kernel stack and set `ra` to `user_entry`.
+
+```zig
+frame.* = .{
+    .ra = @intFromPtr(&user_entry),
+    .s0 = 0,
+    .s1 = 0,
+    .s2 = 0,
+    .s3 = 0,
+    .s4 = 0,
+    .s5 = 0,
+    .s6 = 0,
+    .s7 = 0,
+    .s8 = 0,
+    .s9 = 0,
+    .s10 = 0,
+    .s11 = 0,
+};
+```
+
+Then `switch_context` restores registers from that frame and does a normal `ret`. Since `ra` is `user_entry`, that is where execution starts. I like this trick because process start and process resume use the exact same mechanism.
+
 ### Round-Robin Yield
+
+The scheduler is cooperative round-robin. There is no timer interrupt forcing a switch. A process runs until it calls `yield`, does a blocking read, or exits.
+
+The scheduler scans the static process table starting from the current pid and picks the next runnable slot. Before the actual register switch it writes the next process page table into `satp` and the next kernel stack top into `sscratch`.
+
+```zig
+asm volatile (
+    \\sfence.vma
+    \\csrw satp, %[satp]
+    \\sfence.vma
+    \\csrw sscratch, %[sscratch]
+    :
+    : [satp] "r" (arch.SATP_SV32 | (@intFromPtr(next.?.page_table) / allocator.PAGE_SIZE)),
+      [sscratch] "r" (@intFromPtr(&next.?.stack) + STACK_SIZE),
+);
+```
+
+Only after that do we call `switch_context(&prev.sp, &next.sp)`. So the next process not only gets a new register set, it also gets its own address space and trap stack.
 
 ![Context switch sequence: yield() → switch_context → user_entry → sret to user space](/blog_materials/pico-os/context-switch.png)
 
 ## Trap Handling and Privilege Transitions
 
+RISC-V has three privilege modes: U-mode for user code, S-mode for the kernel, and M-mode for firmware. The reason for three modes is isolation. If the kernel crashes M-mode is still running, if user code misbehaves the kernel is still running. The CPU enforces this. If user code tries to write a privileged CSR like `stvec` it traps to S-mode automatically.
+
 ### kernelEntry: The RISC-V Trap Vector
 
+When a trap occurs the CPU jumps to `stvec`, which we set to `kernelEntry` during boot. The first thing it does is swap `sp` and `sscratch`:
+
+```zig
+csrrw sp, sscratch, sp
+```
+
+Before the trap `sscratch` held the kernel stack top and `sp` held the user stack pointer. After the swap we are on the kernel stack. All 31 registers then get saved into a `TrapFrame` and `handleTrap` is called with a pointer to it.
+
+```zig
+export fn handleTrap(frame: *arch.TrapFrame) callconv(.c) void {
+    const scause = arch.csr.read("scause");
+    const stval = arch.csr.read("stval");
+    const sepc = arch.csr.read("sepc");
+    if (arch.isException(scause, arch.ECALL_FROM_U)) {
+        syscall.dispatch(frame);
+        arch.csr.write("sepc", sepc + 4);
+        return;
+    }
+    panic_lib.panic("trap: scause={x}, stval={x}, sepc={x}", .{ scause, stval, sepc });
+}
+```
+
+`scause` tells us why we trapped. If it is an `ecall` from U-mode we dispatch the syscall and advance `sepc` by 4 so the CPU returns to the instruction after the `ecall`. Anything else panics.
+
 ### Privilege and the SSTATUS_SUM Flag
+
+When entering user space via `user_entry` we set `sstatus` to `0x40020`, which encodes `SSTATUS_SPIE` and `SSTATUS_SUM`. `SSTATUS_SPIE` sets up the interrupt enable state for after `sret`. `SSTATUS_SUM` allows S-mode to access user memory pages. Without it the kernel would page fault trying to read a buffer pointer passed in from a syscall.
 
 ![Trap handling sequence: ecall → kernelEntry sscratch swap → TrapFrame save → handleTrap → sret](/blog_materials/pico-os/trap-handling.png)
 
 ## System Calls: Seven Ecalls to Run a Shell
 
+The syscall path is very small. User space puts the syscall number in `a7`, arguments in `a0` to `a2`, then executes `ecall`. On the kernel side `handleTrap` sees `ECALL_FROM_U` and forwards the saved trap frame to `syscall.dispatch`.
+
+```zig
+pub const SysCall = enum(u32) {
+    write = 1,
+    read = 2,
+    exit = 3,
+    yield = 4,
+    getpid = 5,
+    readfile = 6,
+    writefile = 7,
+    _,
+};
+```
+
+That is enough to run the shell. `write` and `read` give basic terminal I/O through SBI, `yield` and `exit` drive scheduling, `getpid` is just useful to have, and `readfile` plus `writefile` make the tiny filesystem visible from user space.
+
 ## Drivers: VirtIO Block and the Tar Filesystem
 
 ### The VirtIO Block Driver
+
+The block driver talks to the VirtIO MMIO device at `0x10001000`. On init it checks the magic value, version, and device id, sets up queue 0, allocates the virtqueue in RAM, then allocates one request buffer used for all I/O.
+
+The actual request path uses the classic three-descriptor chain: first a descriptor for the request header, then one for the 512-byte data buffer, then one for the status byte.
+
+```zig
+vq.descs[0].addr = req_paddr;
+vq.descs[0].len = @sizeOf(u32) * 2 + @sizeOf(u64);
+vq.descs[0].flags = VIRTQ_DESC_F_NEXT;
+vq.descs[0].next = 1;
+
+vq.descs[1].addr = req_paddr + data_offset;
+vq.descs[1].len = SECTOR_SIZE;
+
+vq.descs[2].addr = req_paddr + status_offset;
+vq.descs[2].len = @sizeOf(u8);
+vq.descs[2].flags = VIRTQ_DESC_F_WRITE;
+```
+
+After that the driver kicks the queue and busy waits until the used ring advances. It is not fancy, but it is enough to read and write sectors reliably.
 
 ![VirtIO 3-descriptor chain for a block read: request header → data buffer → status byte](/blog_materials/pico-os/virtio-descriptor-chain.png)
 
 ### The Tar Filesystem
 
+The filesystem is basically a tiny in-memory file table backed by a tar archive on disk. At boot we read the disk sectors into a buffer, walk tar headers, and copy the file contents into a fixed array of `File` structs.
+
+```zig
+while (file_i < FILES_MAX) : (file_i += 1) {
+    const header: *TarHeader = @ptrCast(@alignCast(&disk[off]));
+    if (header.name[0] == 0) break;
+    const filesz = oct2int(header.size[0..11]);
+    off += 512 + math.alignUp(filesz, 512);
+}
+```
+
+`lookup` just linearly scans the in-memory table. `create` takes the first free slot. `flush` serializes the in-memory files back into tar headers and writes all sectors back out through VirtIO. So it is not really a filesystem in the big sense, but it is enough to show persistence and a user facing API.
+
 ## The User-Space Shell
 
-## Zig-Specific Notes
+The shell is also very small, but it was the first moment the project felt like an OS rather than a bunch of mechanisms. It prints a prompt, reads one line, compares against a couple commands, and either prints text, exits, or hits the file syscalls.
+
+```zig
+while (true) {
+    io.putstr("> ");
+    var cmdline: [128]u8 = undefined;
+    const cmd = io.readline(&cmdline) orelse continue;
+
+    var buf: [128]u8 = undefined;
+    const content = "Hello from shell!\n";
+
+    if (std.mem.eql(u8, cmd, "hello")) {
+        io.putstr("Hello world from shell!\n");
+    } else if (std.mem.eql(u8, cmd, "exit")) {
+        sys.exit(0);
+    } else if (std.mem.eql(u8, cmd, "readfile")) {
+        _ = sys.readfile("hello.txt", &buf, buf.len);
+    } else if (std.mem.eql(u8, cmd, "writefile")) {
+        _ = sys.writefile("hello.txt", content.ptr, content.len);
+    }
+}
+```
+
+The commands are `hello`, `exit`, `readfile`, and `writefile`. That does not sound like much, but it forces the whole stack to work together: trap entry, syscall dispatch, user memory access, VirtIO, the tar layer, and finally returning back to user space.
 
 ## What I Learned
+
+The main thing I learned is that a lot of OS work is just state transitions with very strict rules. A context switch is just saving the right registers and restoring the right ones. Entering user space is just setting the right CSRs and doing `sret`. A syscall is just a trap with a convention on top.
+
+I also learned that the firmware boundary matters more than I expected. OpenSBI is not just boilerplate, it is the reason the kernel can stay in S-mode and still do things like console I/O and shutdown cleanly.
+
+And in general I came away liking Zig even more for this kind of work. It gives you the explicitness you want when you are dealing with page tables, raw pointers, and trap frames, but the code still feels much nicer to write than plain C.

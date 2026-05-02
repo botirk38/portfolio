@@ -1,0 +1,201 @@
+---
+title: "AI Agents Should Be Simple"
+publishedAt: "2026-05-02"
+summary: "Agent frameworks should keep the core loop simple and compose everything else around it."
+---
+
+AI agents should be simple.
+
+Not because the systems we build with them are always simple. They are not.
+
+But because the core idea is simple: an LLM in a loop with access to tools.
+
+That should be the center of the design.
+
+## TLDR
+
+An agent is an LLM in a loop with tools.
+
+The framework should make that loop obvious.
+
+Memory, tracing, evals, human approval, durable execution, multi-agent workflows, all of that stuff is useful. But it should compose around the loop, not hide it under five new concepts.
+
+This is why I like [Pydantic AI](https://ai.pydantic.dev/).
+
+## The loop
+
+At the bottom, most agents look roughly like this:
+
+```python
+while True:
+    response = llm(messages, tools=tools)
+
+    if response.tool_call:
+        result = run_tool(response.tool_call)
+        messages.append(result)
+        continue
+
+    return response
+```
+
+Obviously production code has more going on.
+
+You need retries. You need validation. You need observability. You need rate limits. You need auth. You need state. You need to make sure the model does not call `delete_everything()` because it had a bad morning.
+
+But still, the mental model should stay the same.
+
+The LLM decides what to do next, tools give it access to the world, and the loop continues until you have an answer or artifact.
+
+Everything else is support structure.
+
+## Where frameworks go wrong
+
+Agent frameworks often start simple, then slowly turn into a new universe.
+
+Suddenly an agent is not just an agent.
+
+It is a worker inside a crew inside a graph inside a flow inside an orchestration runtime with a special state model and a custom vocabulary for things Python already does.
+
+Sometimes you need that.
+
+Most of the time, you do not.
+
+The danger is that the framework becomes the thing you are building, instead of the thing helping you build.
+
+I do not want to learn a new religion just to give an LLM three tools.
+
+## What good design looks like
+
+Good agent framework design should have a small core.
+
+Something like:
+
+- model
+- instructions
+- tools
+- structured output
+- run loop
+
+Then everything else should be composable.
+
+If I want tracing, I add tracing.
+
+If I want evals, I add evals.
+
+If I want a human approval step, I add that around the tool call.
+
+If I want a graph, I should be able to build one, but I should not have to start there.
+
+The base case should feel boring.
+
+That is a compliment.
+
+## Why I like Pydantic AI
+
+[Pydantic AI](https://ai.pydantic.dev/) gets a lot of this right.
+
+The basic example is basically: create an `Agent`, give it instructions, run it.
+
+```python
+from pydantic_ai import Agent
+
+agent = Agent(
+    "anthropic:claude-sonnet-4-6",
+    instructions="Be concise.",
+)
+
+result = agent.run_sync("Explain what an agent is.")
+print(result.output)
+```
+
+That is the right shape.
+
+Then when you need tools, dependencies, structured outputs, or evals, they are there. But they feel attached to the core loop rather than replacing it.
+
+The part I especially like is that it leans into normal Python and type safety.
+
+Tools are functions. Outputs can be Pydantic models. Dependencies are explicit. Your editor can understand a lot of what is going on.
+
+That matters because agents already have enough runtime weirdness. The framework should reduce the amount of mystery, not add more.
+
+## The comparison
+
+There are a bunch of agent frameworks now, and I do not think they are all trying to solve the same problem.
+
+That is important.
+
+Some are simple agent loops. Some are orchestration systems. Some are RAG frameworks with agents attached. Some are multi-agent workflow products.
+
+So the question is not "which one is best?"
+
+The better question is: does the abstraction match the thing you are building?
+
+### Pydantic AI
+
+[Pydantic AI](https://ai.pydantic.dev/) is my favorite for the kind of agent framework I want most of the time.
+
+It keeps the core agent concept direct, but still gives you production pieces like structured outputs, dependency injection, evals, observability, model providers, MCP, and durable execution integrations.
+
+The reason I like it is not that it has the longest feature list.
+
+It is that the feature list composes around a simple center.
+
+### OpenAI Agents SDK
+
+[OpenAI Agents SDK](https://openai.github.io/openai-agents-python/) is also pretty aligned with this philosophy.
+
+Their docs describe a small set of primitives: agents, handoffs, guardrails, tools, and tracing.
+
+That is good.
+
+It also has a managed agent loop, which is useful if you want the runtime to handle tool execution and turns for you.
+
+The tradeoff is obvious: it is naturally closest to the OpenAI ecosystem. That might be exactly what you want, or it might be a constraint.
+
+### smolagents
+
+[smolagents](https://huggingface.co/docs/smolagents/index) is probably the most spiritually aligned with the word "simple."
+
+The library is intentionally small, and the docs are very explicit about keeping abstractions minimal.
+
+I also like the idea of code agents, where the agent writes code to call tools and perform computations. That maps nicely to how programmers already think: functions, loops, conditionals.
+
+The tradeoff is that code execution changes the security story. If your agent can write and run code, you need to care a lot about sandboxing.
+
+### LangChain / LangGraph
+
+[LangChain](https://docs.langchain.com/oss/python/langchain/overview) and [LangGraph](https://docs.langchain.com/oss/python/langgraph/overview) are powerful.
+
+They also come with more conceptual weight.
+
+That is not automatically bad. If you are building a serious workflow with persistence, branching, human-in-the-loop steps, retries, and stateful orchestration, LangGraph makes sense.
+
+But I would not start there for a simple agent.
+
+Starting with a graph before you understand the loop feels backwards.
+
+### CrewAI
+
+[CrewAI](https://docs.crewai.com/en/introduction) is more focused on teams of agents and workflows.
+
+It has concepts like crews and flows, which can be useful when your mental model is genuinely "multiple agents collaborating inside a process."
+
+But that is already a bigger abstraction than the base agent loop.
+
+If your app is one model with a few tools, reaching for a crew feels like hiring a committee to make a sandwich.
+
+## The rule
+
+Start with the loop.
+
+Then add structure only when the problem asks for it.
+
+Do not start with a graph because graphs look serious.
+
+Do not start with multi-agent orchestration because it sounds futuristic.
+
+Do not start with a framework that makes the simple case feel advanced.
+
+An agent is an LLM in a loop with tools.
+
+The best frameworks respect that.

@@ -1,0 +1,113 @@
+---
+title: "The Era of Asynchrony"
+publishedAt: "2026-05-02"
+summary: "Welcoming the new era of agentic coding via background coding agents."
+---
+
+Last week, I went to Unicorn Mafia Hack, the most talent-dense hackathon in Europe I've been to yet.
+
+Look:
+
+This blog is going to be about background coding agents and why they are useful, but not in the abstract LinkedIn way.
+
+At the hackathon, we built FrameMog, a tool that helps people pose for photos, especially guys, because let's be honest, most of us do not know how to pose or take proper pictures of our partners.
+
+The idea was simple: it analyzes your camera roll, then when you take a photo, it analyzes you and the environment and suggests poses so you look your best.
+
+We also ran a hackathon inside the hackathon and gave $100 to the best pose, because why not.
+
+But the interesting part was not just the app. It was how we built it.
+
+We gave Devin a whole spec of the app, then kept spinning up separate Devin tasks as we added more features. Instead of one person sitting there and grinding through everything synchronously, we were delegating chunks of work in parallel and managing the outputs.
+
+That is when the thing clicked for me: software work is moving from synchronous execution to asynchronous delegation.
+
+Let's rewind a sec to when this idea was first proposed, afaik.
+
+It's December 2024, the era of GPT-4o-type models, just to give context. Then comes this company out of nowhere called Cognition, proposing this notion of an 'AI software engineer.'
+
+As expected, the world stood up in shock. People started to either get really hyped and say SWE is dead, or call BS. I was one of those people.
+
+However, it signalled a new era, an "Era of Asynchrony."
+
+## What is the Era of Asynchrony?
+
+AI agent TLDR:
+
+- an LLM in a loop with access to tools. This loop can be bounded by whatever, doesn't really matter.
+
+Traditionally, human labour, besides managerial jobs, was synchronous. A human takes a task and wrestles with it until completion.
+
+For example: software engineers.
+
+You pick up a Jira task, or maybe a couple, create a branch, and implement the fix or feature.
+
+Now, with background coding agents, every employee in your business has the power of delegation, because a new class of employee has been invented: the 'AI agent.'
+
+### The Two Workflows
+
+#### Synchronous Agents
+
+A synchronous agent is an agent that you go back and forth with for a given task.
+
+#### Background agents
+
+A background agent is a form of an AI agent that is not blocking on the thread of a human. You delegate a task and, similarly to what you would expect from a human employee, it completes the task end to end without constant human intervention.
+
+You delegate a task, and it completes this end to end with minimal tweaking / management on your end.
+
+## Why would you use background agents?
+
+In this era of asynchrony, everyone is a manager.
+
+Delegation is freaking powerful. It lets you parallelize your workflow up to whatever N your personal multi-tasking limit can handle.
+
+This is the shift that I think people are underestimating. The value is not just "AI writes code." The value is that you can split work into independent tasks, fire them off, and review the outputs while your own brain stays on the bigger picture.
+
+At the hackathon, that meant we could keep moving on FrameMog while Devin handled separate tasks in the background. One task could be product work. Another could be UI cleanup. Another could be some random feature we wanted to test fast.
+
+That changes the shape of building.
+
+The best engineer is no longer just the person who can sit in a chair and crank the fastest. It is increasingly the person who can define the right tasks, give enough context, review the results, and keep the whole system moving.
+
+### Why now?
+
+Well look, until just recently agents freaking sucked. They didn't do the job well, required a lot of babysitting, and just weren't there yet.
+
+But now, with the latest frontier models, they can honestly do most work end to end very well.
+
+Not perfectly. You still need taste. You still need to review the work. You still need to catch weird decisions, bad abstractions, and cases where the agent confidently does the wrong thing.
+
+But that is also true when you delegate to humans.
+
+The important part is not that agents are flawless. The important part is that they are useful enough to become part of the workflow.
+
+## How do I start?
+
+There are a number of companies doing background AI agents for different domains.
+
+### Coding / SWE
+
+Cognition with Devin is the clearest example for me. You can open up a session, delegate a task or issue on a given repo, and it handles this end to end.
+
+Cursor background agents are one as well. Similar format on the web UI or directly from the IDE: hand off a task to the cloud.
+
+Now my favorite by far is Devin, just because of how mature the computer use functionality is. They've been betting on this paradigm since 2023, so they're massively ahead.
+
+### Other
+
+Claude Cowork, you can kind of say, lets you delegate tasks for anything from coding to finance, etc., and let it handle them end to end.
+
+## The real skill
+
+The real skill in this era is not "can you use an AI tool?"
+
+Everyone will be able to use an AI tool.
+
+The real skill is delegation.
+
+Can you explain the task clearly? Can you split the work properly? Can you give enough context without overloading the agent? Can you review the result with taste? Can you run five threads of work without losing the plot?
+
+That is the new leverage.
+
+We are entering the Era of Asynchrony, and the best builders are going to be the ones who know how to manage it.

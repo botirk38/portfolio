@@ -7,13 +7,13 @@ export default function Page() {
 				Botir Khaltaev
 			</h1>
 			<p className="mb-4">
-				{`I'm a Systems Software Engineer and Research Engineer @ Snyk working on LLM infrastructure. Currently studying at Royal Holloway University of London, I specialize in storage systems, operating systems, and ML infrastructure. I'm passionate about building high-performance, reliable systems that power the next generation of computing.`}
+				{`I'm Botir, an independent founder-engineer interested in systems that are simple, durable, and unusually clear.`}
 			</p>
 			<p className="mb-4">
-				{`My focus lies in the critical systems that form the backbone of modern computing - from kernel-level optimizations and distributed storage architectures to ML system infrastructure. I work extensively with C, C++, Rust, Go, and Zig for systems programming, and contribute to projects like PostgreSQL connection pooling, high-performance key-value stores, and semantic caching systems.`}
+				{`Most software fails long before it fails technically: the abstractions get vague, the state goes missing, and nobody remembers what the system is actually trying to be. I write about that boundary between machinery and judgment.`}
 			</p>
 			<p className="mb-4">
-				{`Currently working on projects including an operating system in Zig, intelligent LLM inference infrastructure, and PostgreSQL monitoring tools. I believe in building systems with integrity and treating every optimization and architectural decision with the respect it deserves.`}
+				{`This site is my public notebook on operating systems, databases, AI infrastructure, founding, and agency. Taste is compressed judgment. Clarity compounds. Read the notes.`}
 			</p>
 			<div className="my-8">
 				<BlogPosts />

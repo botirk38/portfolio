@@ -1,0 +1,439 @@
+---
+title: "Prediction is Intelligence"
+publishedAt: "2026-05-12"
+summary: "Why next-token prediction is not a cheap trick, and why the real criticism of language models is about sample efficiency, not the objective itself."
+---
+
+Prediction is intelligence.
+
+Not all of it.
+
+But more of it than people want to admit.
+
+Look:
+
+This blog is going to be about language models and why the "it just predicts the next token" criticism misses the point.
+
+Not because language models are perfect.
+
+They are not.
+
+Not because they learn like humans.
+
+They absolutely do not.
+
+But because the criticism is aimed at the wrong thing.
+
+## TLDR
+
+Next-token prediction is not a cheap trick.
+
+In NLP, prediction has always been one of the cleanest ways to learn language structure.
+
+The serious criticism of language models is not that they predict.
+
+It is that they need a ridiculous amount of data to become good predictors.
+
+That is a criticism of sample efficiency and gradient-based learning, not a refutation of prediction as intelligence.
+
+## The bad criticism
+
+People love saying this:
+
+> LLMs just predict the next token.
+
+This sounds like an argument.
+
+It is mostly a description.
+
+Yes, the model predicts the next token. That is the training objective.
+
+But the real question is:
+
+What does the model have to learn in order to predict the next token well?
+
+Because in language, the next token is not floating in space.
+
+It depends on syntax.
+
+It depends on meaning.
+
+It depends on context.
+
+It depends on what was said earlier.
+
+It depends on style, intent, ambiguity, reference, discourse, and sometimes reasoning.
+
+So "just prediction" is doing a lot of work there.
+
+A bad predictor learns neighboring words.
+
+A good predictor learns constraints.
+
+That is the whole point.
+
+## Prediction is compression
+
+Here is the formal backbone.
+
+A language model is trained to minimize cross-entropy:
+
+$$
+\mathcal{L}(\theta) = - \mathbb{E}_{\mathbf{x} \sim p} \left[ \sum_{t=1}^{T} \log q_\theta(x_t \mid x_{<t}) \right]
+$$
+
+By the chain rule, this is equivalent to:
+
+$$
+\mathcal{L}(\theta) = H(p, q_\theta)
+$$
+
+where $H(p, q_\theta)$ is the cross-entropy between the true distribution $p$ and the model $q_\theta$.
+
+Shannon told us that the expected code length for any compressor is bounded by entropy:
+
+$$
+\mathbb{E}_{x \sim p}[\ell(x)] \geq H(p)
+$$
+
+with equality when the code length is $\ell(x) = -\log p(x)$.
+
+**What this means:** better prediction means better compression. Delétang et al. (2023) showed this empirically — Chinchilla-optimal transformers compress ImageNet patches better than PNG, and audio better than FLAC. The model assigns probabilities; arithmetic coding turns those probabilities into bits.
+
+So the training objective is not "guess the next word." It is "find a compression scheme for language."
+
+And compression is not memorizing everything.
+
+Compression is finding regularity.
+
+## Why structure is unavoidable
+
+Consider what happens if the data has no structure.
+
+If tokens are drawn uniformly at random from a vocabulary $\mathcal{V}$, the entropy is:
+
+$$
+H(X) = \log |\mathcal{V}|
+$$
+
+For any model $q_\theta$:
+
+$$
+H(p, q_\theta) \geq \log |\mathcal{V}|
+$$
+
+The perplexity is:
+
+$$
+\text{PPL} = \exp(H(p, q_\theta)) \geq |\mathcal{V}|
+$$
+
+This means: if tokens are random, the best you can do is random guessing. The perplexity floor equals vocabulary size.
+
+Modern LLMs achieve perplexities of 10–20. Vocabulary sizes are 32,000–200,000.
+
+They are not guessing randomly.
+
+They are exploiting massive amounts of structure.
+
+## What structure looks like
+
+Language is not uniform. It exhibits dependencies at multiple scales.
+
+### Syntactic structure
+
+Consider subject-verb agreement:
+
+```
+The keys to the cabinet ___
+```
+
+The model must assign:
+
+$$
+q_\theta(\text{"are"} \mid \mathbf{x}_{<t}) \gg q_\theta(\text{"is"} \mid \mathbf{x}_{<t})
+$$
+
+despite the intervening prepositional phrase. This requires tracking the syntactic head "keys" across a dependency chain.
+
+### Semantic dependencies
+
+Consider coreference:
+
+```
+Alice told Maria that she should apply for the job.
+```
+
+The model must learn that "she" depends on a latent entity assignment. Formally:
+
+$$
+P(X_t \mid \mathbf{x}_{<t}) = \sum_{z} P(X_t \mid z) \, P(z \mid \mathbf{x}_{<t})
+$$
+
+where $z$ is a latent coreference variable. The model learns to marginalize over these structures without being told to.
+
+### Discourse and pragmatics
+
+Consider:
+
+```
+Can you open the window?
+```
+
+The literal meaning is a question about ability. The pragmatic meaning is a request. The model must learn that responses depend on the speech act, not just the propositional content.
+
+Formally, if $S$ is the speech act and $U$ is the utterance:
+
+$$
+P(\text{response} \mid U) = \sum_{s} P(\text{response} \mid S=s) \, P(S=s \mid U)
+$$
+
+The model learns this by minimizing prediction error across billions of conversational contexts.
+
+## The information-theoretic view
+
+Mutual information tells us how much context reduces uncertainty:
+
+$$
+I(x_t ; \mathbf{x}_{<t}) = H(x_t) - H(x_t \mid \mathbf{x}_{<t})
+$$
+
+If $I(x_t ; \mathbf{x}_{<t}) > 0$, then $x_t$ is not independent of its context. Any predictor that ignores the context is suboptimal.
+
+For long-range dependencies:
+
+$$
+I(x_t ; x_{t-k}) = H(x_t) - H(x_t \mid x_{t-k})
+$$
+
+Language has long-range mutual information. Pronouns refer back to nouns many tokens ago. Discourse themes persist across paragraphs. Reasoning chains span multiple sentences.
+
+The attention mechanism in transformers computes these dependencies:
+
+$$
+\alpha_{ij} = \frac{\exp(Q_i K_j^\top / \sqrt{d})}{\sum_{j'} \exp(Q_i K_{j'}^\top / \sqrt{d})}
+$$
+
+The attention weight $\alpha_{ij}$ is effectively $P(x_j \text{ relevant} \mid x_i)$. The model routes information from positions that are predictive of the current token.
+
+Shwartz-Ziv (2022) showed that deep networks follow the Information Bottleneck principle: layers compress input information while preserving task-relevant information. Prediction and compression are not just mathematically equivalent — they are mechanistically coupled in how networks learn.
+
+## Emergence from scale
+
+Wei et al. (2022) found that certain abilities appear abruptly at scale: multi-step arithmetic, word unscrambling, chain-of-thought reasoning. These are **emergent** — near-random performance until a critical threshold, then sudden capability.
+
+But Schaeffer et al. (2023) showed that many emergent abilities largely disappear with linear metrics or better statistics — suggesting they are partially artifacts of nonlinear evaluation, not fundamental phase transitions. Schaeffer et al. (2024) further found that predicting downstream capabilities from pretraining loss remains elusive.
+
+This debate matters. If emergence is real, better prediction unlocks qualitatively new capabilities. If emergence is a mirage, scaling prediction only improves quantitative performance. The truth is probably intermediate: some abilities require minimum predictive capacity to become reliable; others are measurement artifacts.
+
+Either way, the objective never changes. It is always $-\log q_\theta(x_t \mid x_{<t})$. What changes is the model's capacity to approximate the true conditional distribution.
+
+## The real criticism
+
+Here is where the good criticism lives.
+
+Language models are wildly sample inefficient.
+
+Humans do not need the whole internet to learn language.
+
+Children learn from much less data, and they do not just passively consume text.
+
+They see.
+
+They act.
+
+They get corrected.
+
+They ask questions.
+
+They play.
+
+They test things.
+
+They have memory, embodiment, social feedback, and active learning.
+
+Current LLMs mostly get static text and gradient descent.
+
+That is a very different learning setup.
+
+Udandarao et al. (2024) showed that multimodal models require exponentially more data to achieve linear improvements — what they call "no zero-shot without exponential data." Sachdeva et al. (2024) found that while data-efficient training is possible with careful curation, standard training is massively wasteful.
+
+The gap is enormous:
+
+| Aspect | Human Learning | LLM Training |
+|--------|---------------|--------------|
+| Data | ~10^7–10^8 tokens | ~10^12–10^13 tokens |
+| Feedback | Embodied, social, causal | Gradient on log-likelihood |
+| Active | Yes (questions, exploration) | No (static corpus) |
+| Curriculum | Structured, adaptive | Random shuffle |
+| Compression | ~1000× | ~100× |
+
+That is 4–6 orders of magnitude in data efficiency.
+
+Hosseini et al. (2024) found that neural language models can predict human brain responses even after developmentally realistic training — suggesting the architecture is capable of human-like processing. Ghanizadeh & Dousti (2024) explored child-inspired approaches to improve data efficiency. Bowers (2025) argues that humans have innate linguistic priors that pure prediction-based models lack.
+
+## Why gradient descent is hungry
+
+Stochastic gradient descent updates:
+
+$$
+\theta_{t+1} = \theta_t - \eta \nabla_\theta \mathcal{L}(\theta_t; \mathbf{x}^{(i)})
+$$
+
+Each update provides at most $O(1)$ bits of information. But there is a deeper problem.
+
+Power et al. (2022) discovered **grokking**: neural networks first memorize perfectly while generalizing poorly, then suddenly transition to perfect generalization after extended training — well past overfitting. Lyu et al. (2023) proved this arises from implicit bias dichotomy: early training memorizes, late training generalizes. Wang et al. (2024) found that grokked transformers become implicit reasoners, while standard training fails at systematic generalization.
+
+**Gradient descent's default behavior is memorization, not understanding.** Generalization is a late-phase emergent phenomenon requiring massive over-training.
+
+Contrast with a child learning "fire is hot" from one interaction: multi-modal sensory data, causal information, social context, active experimentation. A single episode conveys $O(100)$ bits of structured information. SGD needs millions of examples for equivalent structure.
+
+## Scaling laws
+
+Kaplan et al. (2020) found that test loss follows a power law:
+
+$$
+L(N, D) = L_\infty + \frac{a}{N^\alpha} + \frac{b}{D^\beta}
+$$
+
+where $L_\infty$ is the irreducible entropy — the limit of predictability. Even infinite models on infinite data cannot go below this because language is inherently stochastic.
+
+The power law tells us two things:
+
+1. **Prediction keeps improving with scale.** No plateau. More compute → better prediction → more structure captured.
+
+2. **The cost is enormous.** Each halving of excess loss requires exponentially more parameters:
+
+$$
+N \propto (L - L_\infty)^{-1/\alpha}
+$$
+
+With $\alpha \approx 0.07$, halving the gap requires $2^{14.3} \approx 20,000\times$ more parameters.
+
+Hoffmann et al. (2022) refined this in the Chinchilla paper: most LLMs are **undertrained**. For compute-optimal training, model size and data should scale equally. Muennighoff et al. (2023) found that under data constraints, smaller models trained longer can match larger ones — but repeated data causes diminishing returns.
+
+This is why modern LLMs need trillions of tokens and billions of dollars. Not because prediction is weak. Because prediction is powerful, and we are buying that power with brute-force gradient descent.
+
+## No Free Lunch
+
+The No Free Lunch theorem says averaged over all possible data distributions, every learning algorithm has the same expected error.
+
+Formally, for any two algorithms $A$ and $B$:
+
+$$
+\sum_{f} P(f) \, R(A, f) = \sum_{f} P(f) \, R(B, f)
+$$
+
+**What this means:** Transformers do not win because they are universally better. They win because their inductive bias aligns with language structure.
+
+Goldblum et al. (2023) resolved the apparent paradox: real-world problems generate low-complexity data, and neural networks share this bias toward low Kolmogorov complexity. Our problems are special, not uniformly distributed.
+
+Language is sequential, compositional, context-dependent, and sparse. Transformers hard-code these biases: attention is sparse, residuals enable composition, positional encodings preserve sequentiality.
+
+If language had different structure, transformers would fail. They work because prediction + the right inductive bias = learning the right structure.
+
+## The distinction
+
+There are three things people keep mixing:
+
+```
+objective
+architecture
+learning algorithm
+```
+
+For modern LLMs:
+
+```
+objective = predict tokens
+architecture = transformer
+learning algorithm = gradient descent over huge datasets
+```
+
+The objective is sound. The architecture is well-suited. The learning algorithm is sample-inefficient.
+
+If you want to criticize LLMs, be precise:
+
+- Criticize the $10^{13}$ token data requirement.
+- Criticize that gradient descent memorizes before generalizing.
+- Criticize the lack of active learning.
+- Criticize the absence of causal/embodied feedback.
+- Criticize the brittleness under distribution shift.
+- Criticize that $D_{\text{KL}}(q_\theta \,\|\, p)$ is never zero.
+- Criticize that emergence may be partially a metric artifact.
+
+But "it predicts" is not the criticism.
+
+Prediction is the job.
+
+## The rule
+
+Prediction is intelligence.
+
+Not all intelligence.
+
+Not human intelligence.
+
+Not grounded biological intelligence.
+
+But in NLP, prediction is absolutely a form of intelligence.
+
+Because NLP intelligence means learning and using the structure of language.
+
+And language has a lot of structure.
+
+The real story is not that language models are "just predictors."
+
+The real story is that prediction is powerful enough to extract linguistic structure at scale, and gradient descent is inefficient enough to require a planet's worth of text to do it.
+
+## References
+
+1. Shannon, C. E. (1948). [*A Mathematical Theory of Communication*](https://people.math.harvard.edu/~ctm/home/text/others/shannon/entropy/entropy.pdf). Bell System Technical Journal.
+
+2. Bengio, Y., Ducharme, R., Vincent, P., & Janvin, C. (2003). [*A Neural Probabilistic Language Model*](https://www.jmlr.org/papers/volume3/bengio03a/bengio03a.pdf). Journal of Machine Learning Research.
+
+3. Cover, T. M., & Thomas, J. A. (2006). *Elements of Information Theory* (2nd ed.). Wiley-Interscience.
+
+4. Vaswani, A., Shazeer, N., Parmar, N., Uszkoreit, J., Jones, L., Gomez, A. N., Kaiser, L., & Polosukhin, I. (2017). [*Attention Is All You Need*](https://arxiv.org/abs/1706.03762). Advances in Neural Information Processing Systems.
+
+5. Kaplan, J., McCandlish, S., Henighan, T., Brown, T. B., Chess, B., Child, R., Gray, S., Radford, A., Wu, J., & Amodei, D. (2020). [*Scaling Laws for Neural Language Models*](https://arxiv.org/abs/2001.08361). arXiv preprint arXiv:2001.08361.
+
+6. Hoffmann, J., Borgeaud, S., Mensch, A., Buchatskaya, E., Cai, T., Rutherford, E., de Las Casas, D., Hendricks, L. A., Welbl, J., Clark, A., Hennigan, T., Noland, E., Millican, K., van den Driessche, G., Damoc, B., Guy, A., Osindero, S., Simonyan, K., Elsen, E., Rae, J. W., Vinyals, O., & Sifre, L. (2022). [*Training Compute-Optimal Large Language Models*](https://arxiv.org/abs/2203.15556). NeurIPS.
+
+7. Wei, J., Tay, Y., Bommasani, R., Raffel, C., Zoph, B., Borgeaud, S., Yogatama, D., Bosma, M., Zhou, D., Metzler, D., Chi, E. H., Hashimoto, T., Vinyals, O., Liang, P., Dean, J., & Fedus, W. (2022). [*Emergent Abilities of Large Language Models*](https://arxiv.org/abs/2206.07682). TMLR.
+
+8. Power, A., Burda, Y., Edwards, H., Babuschkin, I., & Misra, V. (2022). [*Grokking: Generalization Beyond Overfitting on Small Algorithmic Datasets*](https://arxiv.org/abs/2201.02177). arXiv preprint arXiv:2201.02177.
+
+9. Shwartz-Ziv, R. (2022). [*Information Flow in Deep Neural Networks*](https://arxiv.org/abs/2202.06749). arXiv preprint arXiv:2202.06749.
+
+10. Delétang, G., Ruoss, A., Duquenne, P. A., Catt, E., Genewein, T., Mattern, C., Grau-Moya, J., Wenliang, L. K., Aitchison, M., Orseau, L., Hutter, M., & Veness, J. (2023). [*Language Modeling Is Compression*](https://arxiv.org/abs/2309.10668). arXiv preprint arXiv:2309.10668.
+
+11. Lyu, K., Jin, J., Li, Z., Du, S. S., Lee, J. D., & Hu, W. (2023). [*Dichotomy of Early and Late Phase Implicit Biases Can Provably Induce Grokking*](https://arxiv.org/abs/2311.18817). ICLR 2024.
+
+12. Schaeffer, R., Miranda, B., & Koyejo, S. (2023). [*Are Emergent Abilities of Large Language Models a Mirage?*](https://arxiv.org/abs/2304.15004). NeurIPS 2023.
+
+13. Muennighoff, N., Rush, A., Barak, B., et al. (2023). [*Scaling Data-Constrained Language Models*](https://arxiv.org/abs/2305.16264). NeurIPS 2023.
+
+14. Truong, L. V. (2024). [*On Rank-Dependent Generalisation Error Bounds for Transformers*](https://arxiv.org/abs/2410.11500). arXiv preprint arXiv:2410.11500.
+
+15. Trauger, J., & Tewari, A. (2024). [*Sequence Length Independent Norm-Based Generalization Bounds for Transformers*](https://proceedings.mlr.press/v235/trauger24a.html). ICML 2024.
+
+16. Wang, B., Yue, X., Su, Y., & Sun, H. (2024). [*Grokked Transformers are Implicit Reasoners: A Mechanistic Journey to the Edge of Generalization*](https://arxiv.org/abs/2405.15071). NeurIPS 2024.
+
+17. Udandarao, V., Prabhu, A., Ghosh, A., Sharma, Y., Torr, P. H. S., Bibi, A., Albanie, S., & Bethge, M. (2024). [*No "Zero-Shot" Without Exponential Data: Pretraining Concept Frequency Determines Multimodal Model Performance*](https://arxiv.org/abs/2404.04125). NeurIPS 2024.
+
+18. Sachdeva, N., Coleman, B., Kang, W. C., Ni, J., Hong, L., Chi, E. H., Caverlee, J., McAuley, J., & Cheng, D. Z. (2024). [*How to Train Data-Efficient LLMs*](https://arxiv.org/abs/2402.09668). arXiv preprint arXiv:2402.09668.
+
+19. Schaeffer, R., Schoelkopf, H., Miranda, B., Mukobi, G., Madan, V., Ibrahim, A., Bradley, H., Biderman, S., & Koyejo, S. (2024). [*Why Has Predicting Downstream Capabilities of Frontier AI Models with Scale Remained Elusive?*](https://arxiv.org/abs/2406.04391). arXiv preprint arXiv:2406.04391.
+
+20. Goldblum, M., Finzi, M. A., Rowan, K., & Wilson, A. G. (2023). [*The No Free Lunch Theorem, Kolmogorov Complexity, and the Role of Inductive Biases in Machine Learning*](https://arxiv.org/abs/2309.04832). ICML 2024.
+
+21. Hosseini, E. A., Schrimpf, M., Zhang, Y., & Fedorenko, E. (2024). [*Artificial Neural Network Language Models Predict Human Brain Responses to Language Even After a Developmentally Realistic Amount of Training*](https://direct.mit.edu/nol/article/5/1/43/119156). Neurobiology of Language.
+
+22. Ghanizadeh, M. A., & Dousti, M. J. (2024). [*Towards Data-Efficient Language Models: A Child-Inspired Approach to Language Learning*](https://aclanthology.org/2024.conll-babylm.2/). Proceedings of the BabyLM Challenge at CoNLL.
+
+23. Bowers, J. S. (2025). [*The Successes and Failures of Artificial Neural Networks Highlight the Importance of Innate Linguistic Priors for Human Language Acquisition*](https://psycnet.apa.org/record/2026-83323-001). Psychological Review.
+
+24. Wolpert, D. H., & Macready, W. G. (1997). [*No Free Lunch Theorems for Optimization*](https://ti.arc.nasa.gov/m/profile/dhw/papers/78.pdf). IEEE Transactions on Evolutionary Computation.
+
+25. Bahri, Y., et al. (2024). [*Statistical Mechanics of Deep Learning*](https://arxiv.org/abs/2303.03409). Annual Review of Condensed Matter Physics.

@@ -1,8 +1,12 @@
 import { SemanticMap } from "app/components/blog/routing-sucks/semantic-map";
+import { Citations, Cite } from "app/components/citations";
 import Image from "next/image";
 import Link from "next/link";
 import { MDXRemote } from "next-mdx-remote/rsc";
 import React from "react";
+import rehypeKatex from "rehype-katex";
+import remarkGfm from "remark-gfm";
+import remarkMath from "remark-math";
 import { highlight } from "sugar-high";
 
 function Table(props) {
@@ -121,6 +125,8 @@ const components = {
 	Table,
 	// Blog components
 	SemanticMap,
+	Citations,
+	Cite,
 };
 
 export function CustomMDX(props) {
@@ -128,6 +134,12 @@ export function CustomMDX(props) {
 		<MDXRemote
 			{...props}
 			components={{ ...components, ...(props.components || {}) }}
+			options={{
+				mdxOptions: {
+					remarkPlugins: [remarkMath, remarkGfm],
+					rehypePlugins: [rehypeKatex],
+				},
+			}}
 		/>
 	);
 }

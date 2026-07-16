@@ -138,11 +138,24 @@ input[type="email"] {
 	appearance: none;
 }
 
-table {
-	display: block;
-	max-width: fit-content;
-	overflow-x: auto;
-	white-space: nowrap;
+.prose table {
+	@apply w-full my-6 border-collapse text-sm;
+}
+
+.prose thead {
+	@apply border-b border-neutral-200 dark:border-neutral-800;
+}
+
+.prose th {
+	@apply px-4 py-2 text-left font-medium text-neutral-900 dark:text-neutral-100;
+}
+
+.prose td {
+	@apply px-4 py-2 border-b border-neutral-100 dark:border-neutral-800 text-neutral-800 dark:text-neutral-200;
+}
+
+.prose tr:last-child td {
+	@apply border-b-0;
 }
 
 .title {
